@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Data.SQLite;
@@ -100,7 +101,15 @@ internal static class EdgeHistoryCli
 
     private static void PrintHelp()
     {
-        Console.WriteLine("Edge Browser History CLI");
+        var version = Assembly.GetExecutingAssembly()
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+            ?? Assembly.GetExecutingAssembly().GetName().Version?.ToString()
+            ?? "unknown";
+        // Strip build metadata (e.g. +commitsha) for cleaner display
+        var plusIndex = version.IndexOf('+');
+        if (plusIndex >= 0)
+            version = version[..plusIndex];
+        Console.WriteLine($"Edge Browser History CLI v{version}");
         Console.WriteLine();
         Console.WriteLine("Usage:");
         Console.WriteLine("  edge-browser-history-cli --help");
