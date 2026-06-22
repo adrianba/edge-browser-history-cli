@@ -24,19 +24,32 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Validate version format
+        run: |
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Invalid version format '$VERSION'. Expected semver (e.g. 1.2.3)."
+            exit 1
+          fi
+        env:
+          VERSION: ${{ inputs.version }}
+
       - name: Update version in project file
         run: |
-          sed -i "s/<Version>.*<\/Version>/<Version>${{ inputs.version }}<\/Version>/" EdgeBrowserHistoryCli/EdgeBrowserHistoryCli.csproj
-          sed -i "s/<AssemblyVersion>.*<\/AssemblyVersion>/<AssemblyVersion>${{ inputs.version }}<\/AssemblyVersion>/" EdgeBrowserHistoryCli/EdgeBrowserHistoryCli.csproj
-          sed -i "s/<FileVersion>.*<\/FileVersion>/<FileVersion>${{ inputs.version }}<\/FileVersion>/" EdgeBrowserHistoryCli/EdgeBrowserHistoryCli.csproj
+          sed -i "s/<Version>.*<\/Version>/<Version>${VERSION}<\/Version>/" EdgeBrowserHistoryCli/EdgeBrowserHistoryCli.csproj
+          sed -i "s/<AssemblyVersion>.*<\/AssemblyVersion>/<AssemblyVersion>${VERSION}<\/AssemblyVersion>/" EdgeBrowserHistoryCli/EdgeBrowserHistoryCli.csproj
+          sed -i "s/<FileVersion>.*<\/FileVersion>/<FileVersion>${VERSION}<\/FileVersion>/" EdgeBrowserHistoryCli/EdgeBrowserHistoryCli.csproj
+        env:
+          VERSION: ${{ inputs.version }}
 
       - name: Commit version update
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add EdgeBrowserHistoryCli/EdgeBrowserHistoryCli.csproj
-          git commit -m "Bump version to ${{ inputs.version }}"
+          git commit -m "Bump version to ${VERSION}"
           git push
+        env:
+          VERSION: ${{ inputs.version }}
 
       - name: Restore dependencies
         run: dotnet restore edge-browser-history-cli.slnx

@@ -3,7 +3,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Data.SQLite;
 
-return await EdgeHistoryCli.RunAsync(args);
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+return await EdgeHistoryCli.RunAsync(args, cts.Token);
 
 internal static class EdgeHistoryCli
 {
@@ -14,7 +15,7 @@ internal static class EdgeHistoryCli
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
-    public static async Task<int> RunAsync(string[] args)
+    public static async Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default)
     {
         if (args.Length == 0 || args.Contains("--help", StringComparer.OrdinalIgnoreCase))
         {
@@ -39,7 +40,7 @@ internal static class EdgeHistoryCli
                 throw new EdgeHistoryException("No command specified. Use --profiles or --history.");
             }
 
-            var history = await EdgeHistoryService.GetHistoryAsync(userDataDir, parsed.HistoryRequest);
+            var history = await EdgeHistoryService.GetHistoryAsync(userDataDir, parsed.HistoryRequest, cancellationToken);
             WriteJson(new
             {
                 profile = parsed.HistoryRequest.Profile,
@@ -55,28 +56,46 @@ internal static class EdgeHistoryCli
             WriteJson(new { error = ex.Message });
             return 1;
         }
+        catch (OperationCanceledException)
+        {
+            WriteJson(new { error = "Operation timed out." });
+            return 1;
+        }
     }
 
     private static string ResolveUserDataDir(string? overrideDir)
     {
+        string resolved;
+
         if (!string.IsNullOrWhiteSpace(overrideDir))
         {
-            return overrideDir;
+            resolved = overrideDir;
         }
-
-        var envOverride = Environment.GetEnvironmentVariable("EDGE_USER_DATA_DIR");
-        if (!string.IsNullOrWhiteSpace(envOverride))
+        else
         {
-            return envOverride;
+            var envOverride = Environment.GetEnvironmentVariable("EDGE_USER_DATA_DIR");
+            if (!string.IsNullOrWhiteSpace(envOverride))
+            {
+                resolved = envOverride;
+            }
+            else
+            {
+                var localAppData = Environment.GetEnvironmentVariable("LOCALAPPDATA");
+                if (string.IsNullOrWhiteSpace(localAppData))
+                {
+                    throw new EdgeHistoryException("LOCALAPPDATA is not set; cannot locate Edge data. Set EDGE_USER_DATA_DIR to override.");
+                }
+
+                resolved = Path.Combine(localAppData, "Microsoft", "Edge", "User Data");
+            }
         }
 
-        var localAppData = Environment.GetEnvironmentVariable("LOCALAPPDATA");
-        if (string.IsNullOrWhiteSpace(localAppData))
+        if (!Directory.Exists(resolved))
         {
-            throw new EdgeHistoryException("LOCALAPPDATA is not set; cannot locate Edge data. Set EDGE_USER_DATA_DIR to override.");
+            throw new EdgeHistoryException($"Edge User Data directory not found: {resolved}");
         }
 
-        return Path.Combine(localAppData, "Microsoft", "Edge", "User Data");
+        return resolved;
     }
 
     private static void PrintHelp()
@@ -264,7 +283,7 @@ public static class EdgeHistoryService
             .ToList();
     }
 
-    public static Task<IReadOnlyList<HistoryEntry>> GetHistoryAsync(string userDataDir, HistoryRequest request)
+    public static async Task<IReadOnlyList<HistoryEntry>> GetHistoryAsync(string userDataDir, HistoryRequest request, CancellationToken cancellationToken = default)
     {
         if (!DateOnly.TryParseExact(request.Date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
         {
@@ -289,49 +308,60 @@ public static class EdgeHistoryService
             throw new EdgeHistoryException("Resolved history path escapes the Edge User Data directory.");
         }
 
-        if (!File.Exists(historyPath))
-        {
-            throw new EdgeHistoryException($"History database not found for profile '{profile.Name}'.");
-        }
-
         using var snapshot = HistorySnapshot.Create(historyPath);
-        using var conn = new SQLiteConnection($"Data Source={snapshot.HistoryPath};Version=3;Read Only=False;");
-        conn.Open();
 
-        using var busy = conn.CreateCommand();
-        busy.CommandText = "PRAGMA busy_timeout = 5000";
-        busy.ExecuteNonQuery();
-
-        using var command = conn.CreateCommand();
-        command.CommandText = @"
-            SELECT v.id, v.visit_time, v.transition,
-                   u.id, u.url, u.title, u.visit_count, u.typed_count
-            FROM visits v
-            JOIN urls u ON v.url = u.id
-            WHERE v.visit_time >= @start AND v.visit_time < @end
-            ORDER BY v.visit_time ASC";
-
-        command.Parameters.AddWithValue("@start", startChrome);
-        command.Parameters.AddWithValue("@end", endChrome);
-
-        var entries = new List<HistoryEntry>();
-        using var reader = command.ExecuteReader();
-        while (reader.Read())
+        return await Task.Run(() =>
         {
-            var visitTime = DateTimeConverters.ChromeMicrosecondsToLocalDateTimeOffset(reader.GetInt64(1));
-            entries.Add(new HistoryEntry(
-                VisitTime: visitTime.ToString("O", CultureInfo.InvariantCulture),
-                Url: reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
-                Title: reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
-                VisitCount: reader.IsDBNull(6) ? 0 : reader.GetInt32(6),
-                TypedCount: reader.IsDBNull(7) ? 0 : reader.GetInt32(7),
-                Transition: DecodeTransition(reader.IsDBNull(2) ? 0 : reader.GetInt32(2)),
-                UrlId: reader.IsDBNull(3) ? 0 : reader.GetInt64(3),
-                VisitId: reader.IsDBNull(0) ? 0 : reader.GetInt64(0)));
-        }
+            cancellationToken.ThrowIfCancellationRequested();
 
-        return Task.FromResult<IReadOnlyList<HistoryEntry>>(entries);
+            using var conn = new SQLiteConnection($"Data Source={snapshot.HistoryPath};Version=3;Read Only=True;");
+            conn.Open();
+
+            using var busy = conn.CreateCommand();
+            busy.CommandText = "PRAGMA busy_timeout = 5000";
+            busy.ExecuteNonQuery();
+
+            using var command = conn.CreateCommand();
+            command.CommandText = @"
+                SELECT v.id, v.visit_time, v.transition,
+                       u.id, u.url, u.title, u.visit_count, u.typed_count
+                FROM visits v
+                JOIN urls u ON v.url = u.id
+                WHERE v.visit_time >= @start AND v.visit_time < @end
+                ORDER BY v.visit_time ASC";
+
+            command.Parameters.AddWithValue("@start", startChrome);
+            command.Parameters.AddWithValue("@end", endChrome);
+
+            var entries = new List<HistoryEntry>();
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var chromeMicroseconds = reader.GetInt64(1);
+                var visitTime = DateTimeConverters.TryChromeMicrosecondsToLocalDateTimeOffset(chromeMicroseconds);
+                if (visitTime is null)
+                {
+                    continue; // skip entries with corrupt timestamps
+                }
+
+                entries.Add(new HistoryEntry(
+                    VisitTime: visitTime.Value.ToString("O", CultureInfo.InvariantCulture),
+                    Url: reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
+                    Title: reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
+                    VisitCount: reader.IsDBNull(6) ? 0 : reader.GetInt32(6),
+                    TypedCount: reader.IsDBNull(7) ? 0 : reader.GetInt32(7),
+                    Transition: DecodeTransition(reader.IsDBNull(2) ? 0 : reader.GetInt32(2)),
+                    UrlId: reader.IsDBNull(3) ? 0 : reader.GetInt64(3),
+                    VisitId: reader.IsDBNull(0) ? 0 : reader.GetInt64(0)));
+            }
+
+            return (IReadOnlyList<HistoryEntry>)entries;
+        }, cancellationToken);
     }
+
+    private const long MaxLocalStateSize = 10 * 1024 * 1024; // 10 MB
 
     private static Dictionary<string, string?> LoadInfoCache(string localStatePath)
     {
@@ -342,7 +372,14 @@ public static class EdgeHistoryService
 
         try
         {
-            using var doc = JsonDocument.Parse(File.ReadAllText(localStatePath));
+            var fileInfo = new FileInfo(localStatePath);
+            if (fileInfo.Length > MaxLocalStateSize)
+            {
+                return new Dictionary<string, string?>();
+            }
+
+            using var stream = File.OpenRead(localStatePath);
+            using var doc = JsonDocument.Parse(stream);
             if (!doc.RootElement.TryGetProperty("profile", out var profileElement) ||
                 !profileElement.TryGetProperty("info_cache", out var infoCacheElement) ||
                 infoCacheElement.ValueKind != JsonValueKind.Object)
@@ -437,16 +474,44 @@ public static class DateTimeConverters
     private const long ChromeEpochOffsetMicroseconds = 11_644_473_600L * 1_000_000L;
     private static readonly DateTimeOffset ChromeEpoch = new(1601, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
+    // Valid Chrome timestamp range: 1601-01-01 to 9999-12-31
+    private const long MinChromeMicroseconds = 0;
+    private const long MaxChromeMicroseconds = 265_046_774_399_999_999L; // approx year 9999
+
     public static DateTimeOffset ChromeMicrosecondsToLocalDateTimeOffset(long chromeMicroseconds)
     {
-        var utc = ChromeEpoch.AddTicks((chromeMicroseconds * 10) - (ChromeEpochOffsetMicroseconds * 10));
+        if (chromeMicroseconds < MinChromeMicroseconds || chromeMicroseconds > MaxChromeMicroseconds)
+        {
+            throw new ArgumentOutOfRangeException(nameof(chromeMicroseconds), "Chrome timestamp is out of valid range.");
+        }
+
+        var utc = ChromeEpoch.AddTicks(chromeMicroseconds * 10);
         return TimeZoneInfo.ConvertTime(utc, TimeZoneInfo.Local);
+    }
+
+    public static DateTimeOffset? TryChromeMicrosecondsToLocalDateTimeOffset(long chromeMicroseconds)
+    {
+        if (chromeMicroseconds < MinChromeMicroseconds || chromeMicroseconds > MaxChromeMicroseconds)
+        {
+            return null;
+        }
+
+        try
+        {
+            var utc = ChromeEpoch.AddTicks(chromeMicroseconds * 10);
+            return TimeZoneInfo.ConvertTime(utc, TimeZoneInfo.Local);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return null;
+        }
     }
 
     public static long DateTimeOffsetToChromeMicroseconds(DateTimeOffset value)
     {
         var utc = value.ToUniversalTime();
-        return ((utc.ToUnixTimeMilliseconds() * 1_000) + (utc.Ticks % TimeSpan.TicksPerMillisecond) / 10) + ChromeEpochOffsetMicroseconds;
+        var ticks = utc.Ticks - ChromeEpoch.Ticks;
+        return ticks / 10;
     }
 }
 
@@ -493,11 +558,13 @@ internal sealed class HistorySnapshot : IDisposable
         {
             Directory.Delete(_tempDirectory, recursive: true);
         }
-        catch (IOException)
+        catch (IOException ex)
         {
+            Console.Error.WriteLine($"Warning: Failed to clean up temp directory '{_tempDirectory}': {ex.Message}");
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException ex)
         {
+            Console.Error.WriteLine($"Warning: Failed to clean up temp directory '{_tempDirectory}': {ex.Message}");
         }
     }
 }
