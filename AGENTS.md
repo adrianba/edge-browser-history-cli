@@ -2,7 +2,7 @@
 
 ## Implementation notes
 
-- Runtime: .NET 8 console app in `/home/runner/work/edge-browser-history-cli/edge-browser-history-cli/EdgeBrowserHistoryCli`.
+- Runtime: .NET 8 console app in `EdgeBrowserHistoryCli/`.
 - Primary flow lives in `Program.cs`:
   - argument parsing (`CliArguments`),
   - profile discovery (`EdgeHistoryService.ListProfiles`),
@@ -26,7 +26,13 @@
 - Optional `--start-time` / `--end-time` narrow results to local-time sub-range.
 - All non-help output is JSON (including errors).
 
+## Versioning and releases
+
+- Version is stored in `EdgeBrowserHistoryCli/EdgeBrowserHistoryCli.csproj` (`Version`, `AssemblyVersion`, `FileVersion`).
+- CI workflow (`.github/workflows/ci.yml`) builds and tests on push/PR to `main`.
+- Release workflow (`.github/workflows/release.yml`) bumps version, builds single-file self-contained executables, and publishes a GitHub Release.
+
 ## Test strategy
 
-- Tests are in `/home/runner/work/edge-browser-history-cli/edge-browser-history-cli/EdgeBrowserHistoryCli.Tests`.
+- Tests are in `EdgeBrowserHistoryCli.Tests/`.
 - Includes argument parsing checks, time-range validation, and integration-style history query test using a synthetic SQLite DB.

@@ -16,24 +16,34 @@ It follows the same approach as `adrianba/edge-browser-mcp`: copy the live `Hist
 ## Build
 
 ```bash
-dotnet build /home/runner/work/edge-browser-history-cli/edge-browser-history-cli/edge-browser-history-cli.slnx
+dotnet build edge-browser-history-cli.slnx
+dotnet test edge-browser-history-cli.slnx
 ```
 
 ## Usage
 
 ```bash
 # help (text)
-dotnet run --project /home/runner/work/edge-browser-history-cli/edge-browser-history-cli/EdgeBrowserHistoryCli -- --help
+dotnet run --project EdgeBrowserHistoryCli -- --help
 
 # list profiles (JSON)
-dotnet run --project /home/runner/work/edge-browser-history-cli/edge-browser-history-cli/EdgeBrowserHistoryCli -- --profiles
+dotnet run --project EdgeBrowserHistoryCli -- --profiles
 
 # history for a day (JSON)
-dotnet run --project /home/runner/work/edge-browser-history-cli/edge-browser-history-cli/EdgeBrowserHistoryCli -- --history --profile "Default" --date 2026-06-20
+dotnet run --project EdgeBrowserHistoryCli -- --history --profile "Default" --date 2026-06-20
 
 # history in a local time range (JSON)
-dotnet run --project /home/runner/work/edge-browser-history-cli/edge-browser-history-cli/EdgeBrowserHistoryCli -- --history --profile "Default" --date 2026-06-20 --start-time 09:00 --end-time 10:30
+dotnet run --project EdgeBrowserHistoryCli -- --history --profile "Default" --date 2026-06-20 --start-time 09:00 --end-time 10:30
 ```
+
+## CI/CD
+
+- **CI**: On push to `main` and pull requests, the project is automatically built and tested via GitHub Actions (`.github/workflows/ci.yml`).
+- **Release**: A manual workflow (`.github/workflows/release.yml`) bumps the version, builds single-file executables for `win-x64` and `linux-x64`, and creates a GitHub Release with the artifacts.
+
+## Versioning
+
+The application version is stored in `EdgeBrowserHistoryCli/EdgeBrowserHistoryCli.csproj` (currently `0.1.0`). It is updated automatically by the release workflow.
 
 ## Edge data location
 
