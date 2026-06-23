@@ -1,4 +1,0 @@
-<Solution>
-  <Project Path="EdgeBrowserHistoryCli.Tests/EdgeBrowserHistoryCli.Tests.csproj" />
-  <Project Path="EdgeBrowserHistoryCli/EdgeBrowserHistoryCli.csproj" />
-</Solution>

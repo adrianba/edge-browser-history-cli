@@ -19,10 +19,10 @@ jobs:
         with:
           ref: main
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+      - name: Setup Go
+        uses: actions/setup-go@v5
         with:
-          dotnet-version: '8.0.x'
+          go-version-file: go.mod
 
       - name: Validate version format
         run: |
@@ -33,11 +33,9 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
 
-      - name: Update version in project file
+      - name: Update version in source
         run: |
-          sed -i "s/<Version>.*<\/Version>/<Version>${VERSION}<\/Version>/" EdgeBrowserHistoryCli/EdgeBrowserHistoryCli.csproj
-          sed -i "s/<AssemblyVersion>.*<\/AssemblyVersion>/<AssemblyVersion>${VERSION}<\/AssemblyVersion>/" EdgeBrowserHistoryCli/EdgeBrowserHistoryCli.csproj
-          sed -i "s/<FileVersion>.*<\/FileVersion>/<FileVersion>${VERSION}<\/FileVersion>/" EdgeBrowserHistoryCli/EdgeBrowserHistoryCli.csproj
+          sed -i "s/const Version = \".*\"/const Version = \"${VERSION}\"/" edge/version.go
         env:
           VERSION: ${{ inputs.version }}
 
@@ -45,25 +43,27 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add EdgeBrowserHistoryCli/EdgeBrowserHistoryCli.csproj
+          git add edge/version.go
           git commit -m "Bump version to ${VERSION}"
           git push
         env:
           VERSION: ${{ inputs.version }}
 
-      - name: Restore dependencies
-        run: dotnet restore edge-browser-history-cli.slnx
-
       - name: Build
-        run: dotnet build edge-browser-history-cli.slnx --no-restore --configuration Release
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
 
       - name: Test
-        run: dotnet test edge-browser-history-cli.slnx --no-build --configuration Release --verbosity normal
+        run: go test ./...
 
       - name: Publish
+        env:
+          CGO_ENABLED: 0
         run: |
-          dotnet publish EdgeBrowserHistoryCli/EdgeBrowserHistoryCli.csproj --configuration Release --output ./publish/win-x64 --runtime win-x64 --self-contained false
-          dotnet publish EdgeBrowserHistoryCli/EdgeBrowserHistoryCli.csproj --configuration Release --output ./publish/win-arm64 --runtime win-arm64 --self-contained false
+          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o ./publish/win-x64/edge-browser-history-cli.exe .
+          GOOS=windows GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o ./publish/win-arm64/edge-browser-history-cli.exe .
 
       - name: Package artifacts
         run: |
