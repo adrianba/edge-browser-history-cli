@@ -47,6 +47,14 @@ func ParseArguments(args []string) (*CliArguments, error) {
 	hasProfiles := flags["--profiles"]
 	hasHistory := flags["--history"]
 
+	// Infer --history mode when --profile or --date are provided without an
+	// explicit mode flag.
+	if !hasProfiles && !hasHistory {
+		if values["--profile"] != "" || values["--date"] != "" {
+			hasHistory = true
+		}
+	}
+
 	if hasProfiles == hasHistory {
 		return nil, newHistoryError("Specify exactly one of --profiles or --history.")
 	}
@@ -57,10 +65,7 @@ func ParseArguments(args []string) (*CliArguments, error) {
 		return &CliArguments{ListProfiles: true, UserDataDir: userDataDir}, nil
 	}
 
-	profile, ok := values["--profile"]
-	if !ok || strings.TrimSpace(profile) == "" {
-		return nil, newHistoryError("--history requires --profile.")
-	}
+	profile := values["--profile"]
 
 	date, ok := values["--date"]
 	if !ok || strings.TrimSpace(date) == "" {
