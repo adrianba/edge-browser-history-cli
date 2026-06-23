@@ -186,3 +186,53 @@ func localToChrome(day time.Time, hour, minute, second int) int64 {
 	local := time.Date(day.Year(), day.Month(), day.Day(), hour, minute, second, 0, time.Local)
 	return timeToChromeMicroseconds(local)
 }
+
+func TestEscapeNonASCII_PureASCII(t *testing.T) {
+	input := []byte(`{"title": "Hello World"}`)
+	got := escapeNonASCII(input)
+	if string(got) != string(input) {
+		t.Errorf("expected no change for pure ASCII, got %q", got)
+	}
+}
+
+func TestEscapeNonASCII_BasicMultilingualPlane(t *testing.T) {
+	// "café" contains é (U+00E9)
+	input := []byte(`{"title": "café"}`)
+	got := string(escapeNonASCII(input))
+	expected := `{"title": "caf\u00e9"}`
+	if got != expected {
+		t.Errorf("expected %q, got %q", expected, got)
+	}
+}
+
+func TestEscapeNonASCII_SupplementaryPlane(t *testing.T) {
+	// 🎉 is U+1F389, outside BMP → surrogate pair \ud83c\udf89
+	input := []byte(`{"title": "🎉"}`)
+	got := string(escapeNonASCII(input))
+	expected := `{"title": "\ud83c\udf89"}`
+	if got != expected {
+		t.Errorf("expected %q, got %q", expected, got)
+	}
+}
+
+func TestEscapeNonASCII_InvalidUTF8(t *testing.T) {
+	// 0xFF is not valid UTF-8
+	input := []byte{'"', 0xFF, '"'}
+	got := string(escapeNonASCII(input))
+	expected := `"\ufffd"`
+	if got != expected {
+		t.Errorf("expected %q, got %q", expected, got)
+	}
+}
+
+func TestWriteJSON_NonASCIIEscaped(t *testing.T) {
+	var buf strings.Builder
+	writeJSON(&buf, map[string]string{"name": "café"})
+	output := buf.String()
+	if strings.Contains(output, "é") {
+		t.Errorf("expected non-ASCII to be escaped, got %q", output)
+	}
+	if !strings.Contains(output, `\u00e9`) {
+		t.Errorf("expected \\u00e9 escape, got %q", output)
+	}
+}
