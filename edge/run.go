@@ -197,8 +197,8 @@ func escapeNonASCII(data []byte) []byte {
 			} else {
 				// Encode as a UTF-16 surrogate pair for characters above BMP.
 				r -= 0x10000
-				hi := 0xD800 + (r>>10)&0x3FF
-				lo := 0xDC00 + r&0x3FF
+				hi := 0xD800 + ((r >> 10) & 0x3FF)
+				lo := 0xDC00 + (r & 0x3FF)
 				fmt.Fprintf(&buf, `\u%04x\u%04x`, hi, lo)
 				i += size
 			}
