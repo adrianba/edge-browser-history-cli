@@ -62,15 +62,13 @@ jobs:
 
       - name: Publish
         run: |
-          dotnet publish EdgeBrowserHistoryCli/EdgeBrowserHistoryCli.csproj --configuration Release --output ./publish/win-x64 --runtime win-x64 --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true
-          dotnet publish EdgeBrowserHistoryCli/EdgeBrowserHistoryCli.csproj --configuration Release --output ./publish/win-arm64 --runtime win-arm64 --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true
-          dotnet publish EdgeBrowserHistoryCli/EdgeBrowserHistoryCli.csproj --configuration Release --output ./publish/linux-x64 --runtime linux-x64 --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true
+          dotnet publish EdgeBrowserHistoryCli/EdgeBrowserHistoryCli.csproj --configuration Release --output ./publish/win-x64 --runtime win-x64 --self-contained false
+          dotnet publish EdgeBrowserHistoryCli/EdgeBrowserHistoryCli.csproj --configuration Release --output ./publish/win-arm64 --runtime win-arm64 --self-contained false
 
       - name: Package artifacts
         run: |
           cd publish/win-x64 && zip -r ../../edge-browser-history-cli-win-x64.zip . && cd ../..
           cd publish/win-arm64 && zip -r ../../edge-browser-history-cli-win-arm64.zip . && cd ../..
-          cd publish/linux-x64 && tar -czf ../../edge-browser-history-cli-linux-x64.tar.gz . && cd ../..
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
@@ -81,4 +79,3 @@ jobs:
           files: |
             edge-browser-history-cli-win-x64.zip
             edge-browser-history-cli-win-arm64.zip
-            edge-browser-history-cli-linux-x64.tar.gz
