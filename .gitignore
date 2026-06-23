@@ -1,2 +1,9 @@
-**/bin/
-**/obj/
+# Build output
+/edge-browser-history-cli
+/edge-browser-history-cli.exe
+/dist/
+*.syso
+
+# Go workspace file
+go.work
+go.work.sum

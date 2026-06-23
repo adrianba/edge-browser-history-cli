@@ -15,16 +15,16 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+      - name: Setup Go
+        uses: actions/setup-go@v6
         with:
-          dotnet-version: '8.0.x'
-
-      - name: Restore dependencies
-        run: dotnet restore edge-browser-history-cli.slnx
+          go-version-file: go.mod
 
       - name: Build
-        run: dotnet build edge-browser-history-cli.slnx --no-restore --configuration Release
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
 
       - name: Test
-        run: dotnet test edge-browser-history-cli.slnx --no-build --configuration Release --verbosity normal
+        run: go test ./... -v
