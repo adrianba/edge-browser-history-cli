@@ -47,6 +47,14 @@ func ParseArguments(args []string) (*CliArguments, error) {
 	hasProfiles := flags["--profiles"]
 	hasHistory := flags["--history"]
 
+	// Infer --history mode when --profile or --date are provided without an
+	// explicit mode flag.
+	if !hasProfiles && !hasHistory {
+		if values["--profile"] != "" || values["--date"] != "" {
+			hasHistory = true
+		}
+	}
+
 	if hasProfiles == hasHistory {
 		return nil, newHistoryError("Specify exactly one of --profiles or --history.")
 	}

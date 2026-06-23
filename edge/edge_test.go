@@ -28,6 +28,25 @@ func TestParseProfilesCommand_Works(t *testing.T) {
 	}
 }
 
+func TestParseImplicitHistory_InfersHistoryMode(t *testing.T) {
+	parsed, err := ParseArguments([]string{"--profile", "Profile 1", "--date", "2026-06-22"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if parsed.ListProfiles {
+		t.Errorf("expected ListProfiles to be false")
+	}
+	if parsed.HistoryRequest == nil {
+		t.Fatalf("expected HistoryRequest to be non-nil")
+	}
+	if parsed.HistoryRequest.Profile != "Profile 1" {
+		t.Errorf("expected profile 'Profile 1', got %q", parsed.HistoryRequest.Profile)
+	}
+	if parsed.HistoryRequest.Date != "2026-06-22" {
+		t.Errorf("expected date '2026-06-22', got %q", parsed.HistoryRequest.Date)
+	}
+}
+
 func TestParseHistoryWithoutProfile_Throws(t *testing.T) {
 	_, err := ParseArguments([]string{"--history", "--date", "2026-01-01"})
 	if err == nil {
