@@ -1,6 +1,7 @@
 package edge
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 )
 
 // Run executes the CLI flow and returns the process exit code. All non-help
@@ -155,7 +157,54 @@ func writeJSON(w io.Writer, payload any) {
 		fmt.Fprintln(os.Stderr, "Error serializing output:", err)
 		return
 	}
+	data = escapeNonASCII(data)
 	fmt.Fprintln(w, string(data))
+}
+
+// escapeNonASCII replaces all non-ASCII bytes in JSON output with \uXXXX escape
+// sequences. This ensures the JSON is pure ASCII, which prevents PowerShell from
+// misinterpreting the output when [Console]::OutputEncoding is set to a non-UTF-8
+// code page (the default on many Windows systems).
+func escapeNonASCII(data []byte) []byte {
+	// Fast path: if all bytes are ASCII, return as-is.
+	allASCII := true
+	for _, b := range data {
+		if b >= 0x80 {
+			allASCII = false
+			break
+		}
+	}
+	if allASCII {
+		return data
+	}
+
+	var buf bytes.Buffer
+	buf.Grow(len(data))
+	for i := 0; i < len(data); {
+		b := data[i]
+		if b < 0x80 {
+			buf.WriteByte(b)
+			i++
+		} else {
+			r, size := utf8.DecodeRune(data[i:])
+			if r == utf8.RuneError && size == 1 {
+				// Invalid UTF-8 byte; emit replacement character escape.
+				buf.WriteString(`\ufffd`)
+				i++
+			} else if r <= 0xFFFF {
+				fmt.Fprintf(&buf, `\u%04x`, r)
+				i += size
+			} else {
+				// Encode as a UTF-16 surrogate pair for characters above BMP.
+				r -= 0x10000
+				hi := 0xD800 + (r>>10)&0x3FF
+				lo := 0xDC00 + r&0x3FF
+				fmt.Fprintf(&buf, `\u%04x\u%04x`, hi, lo)
+				i += size
+			}
+		}
+	}
+	return buf.Bytes()
 }
 
 func writeError(w io.Writer, err error) int {
