@@ -65,10 +65,7 @@ func ParseArguments(args []string) (*CliArguments, error) {
 		return &CliArguments{ListProfiles: true, UserDataDir: userDataDir}, nil
 	}
 
-	profile, ok := values["--profile"]
-	if !ok || strings.TrimSpace(profile) == "" {
-		return nil, newHistoryError("--history requires --profile.")
-	}
+	profile := values["--profile"]
 
 	date, ok := values["--date"]
 	if !ok || strings.TrimSpace(date) == "" {

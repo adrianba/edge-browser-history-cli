@@ -42,6 +42,28 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return writeError(stdout, newHistoryError("No command specified. Use --profiles or --history."))
 	}
 
+	// If no profile was specified, use the default profile.
+	if strings.TrimSpace(parsed.HistoryRequest.Profile) == "" {
+		profiles, err := ListProfiles(userDataDir)
+		if err != nil {
+			return writeError(stdout, err)
+		}
+		defaultProfile := ""
+		for _, p := range profiles {
+			if p.IsDefault {
+				defaultProfile = p.Name
+				break
+			}
+		}
+		if defaultProfile == "" && len(profiles) > 0 {
+			defaultProfile = profiles[0].Name
+		}
+		if defaultProfile == "" {
+			return writeError(stdout, newHistoryError("No profiles found."))
+		}
+		parsed.HistoryRequest.Profile = defaultProfile
+	}
+
 	entries, err := GetHistory(ctx, userDataDir, parsed.HistoryRequest)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
@@ -110,13 +132,13 @@ func printHelp(w io.Writer) {
 		"Usage:",
 		"  edge-browser-history-cli --help",
 		"  edge-browser-history-cli --profiles [--user-data-dir <path>]",
-		"  edge-browser-history-cli --history --profile <name-or-directory> --date <yyyy-MM-dd> [--start-time <HH:mm[:ss]>] [--end-time <HH:mm[:ss]>] [--user-data-dir <path>]",
+		"  edge-browser-history-cli --history [--profile <name-or-directory>] --date <yyyy-MM-dd> [--start-time <HH:mm[:ss]>] [--end-time <HH:mm[:ss]>] [--user-data-dir <path>]",
 		"",
 		"Options:",
 		"  --help                 Show this help text.",
 		"  --profiles             List available Edge browser profiles.",
 		"  --history              Return browsing history for a given profile and date.",
-		"  --profile              Profile name or directory id (e.g. Default, Profile 1).",
+		"  --profile              Profile name or directory id (e.g. Default, Profile 1). Defaults to the default profile.",
 		"  --date                 Local date in yyyy-MM-dd format.",
 		"  --start-time           Optional local start time in HH:mm or HH:mm:ss.",
 		"  --end-time             Optional local end time in HH:mm or HH:mm:ss (exclusive). Must be after start-time.",
