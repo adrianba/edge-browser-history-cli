@@ -2,13 +2,13 @@
   "FixedFileInfo": {
     "FileVersion": {
       "Major": 0,
-      "Minor": 0,
+      "Minor": 2,
       "Patch": 0,
       "Build": 0
     },
     "ProductVersion": {
       "Major": 0,
-      "Minor": 0,
+      "Minor": 2,
       "Patch": 0,
       "Build": 0
     },
@@ -22,14 +22,14 @@
     "Comments": "",
     "CompanyName": "",
     "FileDescription": "Edge Browser History CLI",
-    "FileVersion": "",
+    "FileVersion": "0.2.0",
     "InternalName": "edge-browser-history-cli",
     "LegalCopyright": "",
     "LegalTrademarks": "",
     "OriginalFilename": "edge-browser-history-cli.exe",
     "PrivateBuild": "",
     "ProductName": "Edge Browser History CLI",
-    "ProductVersion": "",
+    "ProductVersion": "0.2.0",
     "SpecialBuild": ""
   },
   "VarFileInfo": {
