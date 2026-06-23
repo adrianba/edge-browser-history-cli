@@ -30,7 +30,7 @@
 
 - Version is stored in `EdgeBrowserHistoryCli/EdgeBrowserHistoryCli.csproj` (`Version`, `AssemblyVersion`, `FileVersion`).
 - CI workflow (`.github/workflows/ci.yml`) builds and tests on push/PR to `main`.
-- Release workflow (`.github/workflows/release.yml`) bumps version, builds single-file self-contained executables, and publishes a GitHub Release.
+- Release workflow (`.github/workflows/release.yml`) bumps version, builds framework-dependent executables for win-x64 and win-arm64, and publishes a GitHub Release. The .NET 8 runtime must be installed on the target machine.
 
 ## Test strategy
 

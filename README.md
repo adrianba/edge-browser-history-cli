@@ -39,7 +39,11 @@ dotnet run --project EdgeBrowserHistoryCli -- --history --profile "Default" --da
 ## CI/CD
 
 - **CI**: On push to `main` and pull requests, the project is automatically built and tested via GitHub Actions (`.github/workflows/ci.yml`).
-- **Release**: A manual workflow (`.github/workflows/release.yml`) bumps the version, builds single-file executables for `win-x64` and `linux-x64`, and creates a GitHub Release with the artifacts.
+- **Release**: A manual workflow (`.github/workflows/release.yml`) bumps the version, builds framework-dependent executables for `win-x64` and `win-arm64`, and creates a GitHub Release with the artifacts.
+
+## Prerequisites
+
+Release artifacts are framework-dependent and require the [.NET 8 runtime](https://dotnet.microsoft.com/download/dotnet/8.0) to be installed on the target machine. The published output includes a native executable (`.exe` on Windows) so `dotnet` does not need to be invoked directly.
 
 ## Versioning
 
