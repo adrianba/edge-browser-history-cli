@@ -1,0 +1,41 @@
+{
+  "FixedFileInfo": {
+    "FileVersion": {
+      "Major": 0,
+      "Minor": 0,
+      "Patch": 0,
+      "Build": 0
+    },
+    "ProductVersion": {
+      "Major": 0,
+      "Minor": 0,
+      "Patch": 0,
+      "Build": 0
+    },
+    "FileFlagsMask": "3f",
+    "FileFlags": "",
+    "FileOS": "040004",
+    "FileType": "01",
+    "FileSubType": "00"
+  },
+  "StringFileInfo": {
+    "Comments": "",
+    "CompanyName": "",
+    "FileDescription": "Edge Browser History CLI",
+    "FileVersion": "",
+    "InternalName": "edge-browser-history-cli",
+    "LegalCopyright": "",
+    "LegalTrademarks": "",
+    "OriginalFilename": "edge-browser-history-cli.exe",
+    "PrivateBuild": "",
+    "ProductName": "Edge Browser History CLI",
+    "ProductVersion": "",
+    "SpecialBuild": ""
+  },
+  "VarFileInfo": {
+    "Translation": {
+      "LangID": "0409",
+      "CharsetID": "04B0"
+    }
+  }
+}

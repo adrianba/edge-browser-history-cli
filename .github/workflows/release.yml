@@ -20,7 +20,7 @@ jobs:
           ref: main
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
@@ -33,9 +33,28 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
 
+      - name: Install goversioninfo
+        run: go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest
+
       - name: Update version in source
         run: |
           sed -i "s/const Version = \".*\"/const Version = \"${VERSION}\"/" edge/version.go
+        env:
+          VERSION: ${{ inputs.version }}
+
+      - name: Update version resource manifest
+        run: |
+          IFS='.' read -r MAJOR MINOR PATCH <<< "${VERSION}"
+          jq \
+            --argjson major "$MAJOR" \
+            --argjson minor "$MINOR" \
+            --argjson patch "$PATCH" \
+            --arg ver "$VERSION" \
+            '.FixedFileInfo.FileVersion = {Major: $major, Minor: $minor, Patch: $patch, Build: 0} |
+             .FixedFileInfo.ProductVersion = {Major: $major, Minor: $minor, Patch: $patch, Build: 0} |
+             .StringFileInfo.FileVersion = $ver |
+             .StringFileInfo.ProductVersion = $ver' \
+            versioninfo.json > versioninfo.json.tmp && mv versioninfo.json.tmp versioninfo.json
         env:
           VERSION: ${{ inputs.version }}
 
@@ -43,7 +62,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add edge/version.go
+          git add edge/version.go versioninfo.json
           git commit -m "Bump version to ${VERSION}"
           git push
         env:
@@ -62,8 +81,12 @@ jobs:
         env:
           CGO_ENABLED: 0
         run: |
+          GOARCH=amd64 goversioninfo -o resource_windows_amd64.syso
           GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o ./publish/win-x64/edge-browser-history-cli.exe .
+          rm -f resource_windows_amd64.syso
+          GOARCH=arm64 goversioninfo -o resource_windows_arm64.syso
           GOOS=windows GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o ./publish/win-arm64/edge-browser-history-cli.exe .
+          rm -f resource_windows_arm64.syso
 
       - name: Package artifacts
         run: |
